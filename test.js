@@ -28,6 +28,7 @@ function rightAnswer(q) {
     case "count": return q.answer;
     case "decimal": return q.toDec ? q.dec : { n: q.n, d: q.d };
     case "addsame": return q.a + q.b;
+    case "propimp": return q.isProper ? "proper" : "improper";
   }
 }
 // a plausible wrong answer, to prove the checker actually rejects
@@ -45,11 +46,12 @@ function wrongAnswer(q) {
     case "count": return { w: q.answer.w, n: q.answer.n + 1 };
     case "decimal": return q.toDec ? q.dec + 0.1 : { n: q.n + 1, d: q.d };
     case "addsame": return q.a + q.b + 1;
+    case "propimp": return q.isProper ? "improper" : "proper";
   }
 }
 
 for (let seed = 1; seed <= 500; seed++) {
-  for (const level of [3, 4, 5]) {
+  for (const level of [3, 4, 5, 6]) {
     for (const q of F.makeRound(level, seed * 7919 + level)) {
       total++;
       seen[q.skill] = (seen[q.skill] || 0) + 1;
@@ -72,8 +74,25 @@ for (let seed = 1; seed <= 500; seed++) {
           else check(mx / mn > 1.8, "'unequal' bar is too close to call", q);
           break;
         }
-        case "name": case "shade": case "whole":
+        case "name": case "whole":
           check(q.n >= 1 && q.n < q.d, "numerator out of range", q); break;
+        case "shade": {
+          const wholes = q.wholes || 1;
+          check(q.n >= 1 && q.n <= q.d * wholes, "shade numerator out of range", q);
+          check(["bar", "grid"].includes(q.shape || "bar"), "unknown shade shape", q);
+          if (q.improper) {
+            check(q.n > q.d, "improper shade is not actually improper", q);
+            check(wholes === 2, "improper shade needs a second ingot", q);
+          } else {
+            check(q.n < q.d, "proper shade should fit one whole", q);
+            check(wholes === 1, "proper shade should need one ingot", q);
+          }
+          break;
+        }
+        case "propimp":
+          check(q.n >= 1 && q.n <= 2 * q.d - 1, "propimp numerator out of range", q);
+          check(q.isProper === (q.n < q.d), "proper/improper label disagrees with the numbers", q);
+          break;
         case "ofnum":
           check(q.N % q.d === 0, "crate does not share evenly", q);
           check(q.m >= 1 && q.m < q.d, "multiple out of range", q);
@@ -123,6 +142,19 @@ function sameValue(q, res) {
 }
 
 // every skill must actually appear, and each level's round must be on-level
+const lvl6 = F.MIXES[6].every((k) => k === "shade");
+if (!lvl6) fails.push("the shading drill contains something other than shading");
+let sawImproper = false, sawGrid = false, sawBar = false;
+for (let seed = 1; seed <= 200; seed++) {
+  for (const q of F.makeRound(6, seed * 31)) {
+    if (q.improper) sawImproper = true;
+    if (q.shape === "grid") sawGrid = true;
+    if (q.shape === "bar") sawBar = true;
+  }
+}
+if (!sawImproper) fails.push("the shading drill never goes past one whole");
+if (!sawGrid) fails.push("the shading drill never draws a grid");
+if (!sawBar) fails.push("the shading drill never draws a bar");
 const lvl3 = F.MIXES[3].every((k) => F.SKILLS[k].level === 3);
 const lvl4 = F.MIXES[4].every((k) => F.SKILLS[k].level === 4);
 if (!lvl3) fails.push("a Level 3 round contains a Level 4 skill");

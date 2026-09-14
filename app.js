@@ -167,18 +167,37 @@ function bar(d, opts) {
   opts = opts || {};
   const b = el("div", "bar" + (opts.cls ? " " + opts.cls : ""));
   const parts = opts.parts || Array.from({ length: d }, () => 1 / d);
-  parts.forEach((w, i) => {
+  const off = opts.offset || 0;          // part numbering carries on across several ingots
+  parts.forEach((w, j) => {
+    const i = j + off;
     const seg = el("div", "seg" + (opts.shaded && opts.shaded.has(i) ? " on" : ""));
     seg.style.flex = String(w);
     if (opts.onTap) {
       seg.addEventListener("click", () => opts.onTap(i, seg));
       seg.classList.add("tappable");
     }
-    if (opts.label) { const t = el("span", "seg-label", opts.label(i)); seg.appendChild(t); }
+    if (opts.label) { const t = el("span", "seg-label", opts.label(j)); seg.appendChild(t); }
     b.appendChild(seg);
   });
   return b;
 }
+/* the same fraction drawn as a grid instead of a bar — the curriculum asks for
+   fractions shown in more than one way, and a grid makes 6ths and 8ths easier to see */
+const GRID_COLS = { 2: 2, 3: 3, 4: 2, 5: 5, 6: 3, 8: 4, 10: 5, 12: 4 };
+function gridShape(d, shadedSet, onTap, offset) {
+  const off = offset || 0;
+  const cols = GRID_COLS[d] || d;
+  const g = el("div", "grid-shape");
+  g.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  for (let j = 0; j < d; j++) {
+    const i = j + off;
+    const cell = el("div", "gcell" + (shadedSet.has(i) ? " on" : "") + (onTap ? " tappable" : ""));
+    if (onTap) cell.addEventListener("click", () => onTap(i, cell));
+    g.appendChild(cell);
+  }
+  return g;
+}
+
 // a bar longer than one whole: used for mixed numbers and counting past 1
 function longBar(wholes, d, n) {
   const wrap = el("div", "long-bar");
@@ -232,11 +251,81 @@ function fracSlots(state, active, setActive, fixed) {
   return f;
 }
 
+/* ---------- working out ----------
+   A scratch pad he can draw on with a finger, the way he would in the margin of
+   the test paper. Strokes are kept as fractions of the canvas so a re-render (or
+   turning the iPad) redraws them instead of wiping them. */
+function workZone() {
+  const wrap = el("div", "work" + (Q.workOpen ? " open" : ""));
+  const toggle = el("button", "work-toggle", Q.workOpen ? "✏️ Hide working out" : "✏️ Working out");
+  toggle.addEventListener("click", () => { Q.workOpen = !Q.workOpen; sfx.tap(); renderQ(); });
+  wrap.appendChild(toggle);
+  if (!Q.workOpen) return wrap;
+
+  const pad = el("div", "work-pad");
+  const canvas = el("canvas", "work-canvas");
+  pad.appendChild(canvas);
+  const bar2 = el("div", "work-bar");
+  const hint = el("span", "work-hint", "Draw with your finger");
+  const clear = el("button", "work-clear", "Rub it out");
+  clear.addEventListener("click", () => { Q.strokes = []; sfx.tap(); redraw(); });
+  bar2.append(hint, clear);
+  pad.appendChild(bar2);
+  wrap.appendChild(pad);
+
+  function redraw() {
+    const r = canvas.getBoundingClientRect();
+    if (!r.width) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(r.width * dpr);
+    canvas.height = Math.round(r.height * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, r.width, r.height);
+    ctx.strokeStyle = "#23180f";
+    ctx.lineWidth = 3.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const stroke of Q.strokes) {
+      if (stroke.length < 2) continue;
+      ctx.beginPath();
+      stroke.forEach((pt, i) => {
+        const x = pt.x * r.width, y = pt.y * r.height;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.stroke();
+    }
+  }
+  requestAnimationFrame(redraw);
+  window.addEventListener("resize", redraw);
+
+  let drawing = null;
+  const at = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+  };
+  canvas.addEventListener("pointerdown", (e) => {
+    drawing = e.pointerId;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events */ }
+    Q.strokes.push([at(e)]);
+    e.preventDefault();
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (drawing !== e.pointerId) return;
+    Q.strokes[Q.strokes.length - 1].push(at(e));
+    redraw();
+    e.preventDefault();
+  });
+  const end = (e) => { if (drawing === e.pointerId) drawing = null; };
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  return wrap;
+}
+
 /* ================= THE ROUND ================= */
 const MODES = {
   3: { name: "Level 3", sub: "what a fraction IS", emoji: "🔥", tag: "Year 3" },
   4: { name: "Level 4", sub: "ready for Grade 4", emoji: "⚒️", tag: "Year 4" },
   5: { name: "Readiness check", sub: "a bit of everything", emoji: "🏅", tag: "mixed" },
+  6: { name: "Shading", sub: "make the fraction yourself", emoji: "🎨", tag: "practice" },
 };
 let G = null;   // current round
 let Q = null;   // current question state
@@ -250,7 +339,8 @@ function startRound(level) {
 }
 function curQ() { return G.qs[G.idx]; }
 function newQ() {
-  Q = { res: undefined, state: {}, active: null, tries: 0, msg: "", msgKind: "", done: false, shaded: new Set(), orderPick: [] };
+  Q = { res: undefined, state: {}, active: null, tries: 0, msg: "", msgKind: "", done: false,
+        shaded: new Set(), orderPick: [], workOpen: false, strokes: [] };
   const q = curQ();
   if (q.kind === "name") Q.active = "n";
   if (q.kind === "mixed" && q.toMixed) Q.active = "w";
@@ -311,6 +401,7 @@ function renderQ() {
     deck.appendChild(go);
   }
   game.appendChild(deck);
+  if (!Q.done) game.appendChild(workZone());
   app.appendChild(game);
 }
 
@@ -414,14 +505,42 @@ function buildQuestion(q, stage) {
       break;
     }
     case "shade": {
-      stage.appendChild(bar(q.d, {
-        shaded: Q.shaded, cls: "big",
-        onTap: Q.done ? null : (i) => {
-          Q.shaded.has(i) ? Q.shaded.delete(i) : Q.shaded.add(i);
-          sfx.cut(); Q.msg = ""; renderQ();
-        },
-      }));
-      stage.appendChild(el("div", "count-note", `${Q.shaded.size} of ${q.d} parts shaded`));
+      const tap = Q.done ? null : (i) => {
+        Q.shaded.has(i) ? Q.shaded.delete(i) : Q.shaded.add(i);
+        sfx.cut(); Q.msg = ""; renderQ();
+      };
+      const wholes = q.wholes || 1;
+      const holder = el("div", wholes > 1 ? "multi" : "single");
+      for (let w = 0; w < wholes; w++) {
+        // part indices run straight on across the ingots, so the count is just the size of the set
+        const off = w * q.d;
+        const piece = q.shape === "grid"
+          ? gridShape(q.d, Q.shaded, tap, off)
+          : bar(q.d, { shaded: Q.shaded, cls: "big", offset: off, onTap: tap });
+        holder.appendChild(piece);
+      }
+      stage.appendChild(holder);
+      const total = q.d * wholes;
+      stage.appendChild(el("div", "count-note",
+        `${Q.shaded.size} of ${total} parts shaded` + (wholes > 1 ? ` · each ingot is ${q.d} parts` : "")));
+      break;
+    }
+    case "propimp": {
+      const wholes = q.n > q.d ? 2 : 1;
+      const holder = el("div", wholes > 1 ? "multi" : "single");
+      for (let w = 0; w < wholes; w++) {
+        const sh = new Set();
+        for (let i = 0; i < q.d; i++) if (w * q.d + i < q.n) sh.add(i);
+        holder.appendChild(bar(q.d, { shaded: sh, cls: "big" }));
+      }
+      stage.appendChild(holder);
+      const row = el("div", "btn-row");
+      const pro = el("button", "btn choice", "Proper — fits in one whole");
+      const imp = el("button", "btn choice", "Improper — a whole or more");
+      pro.addEventListener("click", () => settle(q, "proper"));
+      imp.addEventListener("click", () => settle(q, "improper"));
+      if (Q.done) (q.isProper ? pro : imp).classList.add("right");
+      row.append(pro, imp); stage.appendChild(row);
       break;
     }
     case "whole": {
@@ -795,7 +914,7 @@ function renderHome() {
   home.appendChild(career);
 
   const row = el("div", "mode-row");
-  [3, 4, 5].forEach((lvl) => {
+  [3, 4, 5, 6].forEach((lvl) => {
     const m = MODES[lvl];
     const b = el("button", "mode-btn");
     b.appendChild(el("span", "mode-emoji", m.emoji));

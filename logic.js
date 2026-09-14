@@ -20,6 +20,7 @@
      count   carry on: 3/4, 1, 1 1/4, ...
      decimal 3/4 = 0.75, 0.6 = 6/10
      addsame 1/5 + 3/5
+     propimp is this proper (fits in one whole) or improper (needs more)?
 
    Every question carries everything needed to draw it and to mark it, so the
    app never decides what is right and the test can check the generator alone. */
@@ -58,6 +59,7 @@
     count:   { level: 4, name: "Counting in fractions", blurb: "Carry on past 1: 3/4, 1, 1 and 1/4…" },
     decimal: { level: 4, name: "Fractions as decimals", blurb: "3/4 is 0.75 on the scale." },
     addsame: { level: 4, name: "Adding fractions",    blurb: "Same bottom number: just add the tops." },
+    propimp: { level: 4, name: "Proper or improper",   blurb: "Proper fits inside one whole. Improper needs one whole or more." },
   };
 
   const D3 = [2, 3, 4, 5, 10];        // the Level 3 unit fractions, straight from the curriculum
@@ -99,12 +101,22 @@
       prompt: "What fraction of the ingot is shaded?" };
   }
 
-  // show me 3/5 — he taps the parts
-  function makeShade(rng, level) {
-    const d = pick(rng, level >= 4 ? D3_PLUS : D3);
-    const n = R(rng, 1, d - 1);
-    return { kind: "shade", d, n, answer: n,
-      prompt: `Shade <b>${n}/${d}</b> of the ingot.` };
+  // show me 3/5 — he taps the parts.
+  // `wholes` is how many ingots are on the bench: an improper fraction needs
+  // more than one, which is the clearest way to SEE what improper means.
+  // `shape` swaps the bar for a grid, because the curriculum asks for fractions
+  // shown in different ways, not just one picture.
+  function makeShade(rng, level, opts) {
+    opts = opts || {};
+    const d = pick(rng, level >= 4 || opts.shapes ? D3_PLUS : D3);
+    const improper = opts.allowImproper && rng() < 0.35;
+    const n = improper ? R(rng, d + 1, 2 * d - 1) : R(rng, 1, d - 1);
+    const wholes = improper ? 2 : 1;
+    const shape = opts.shapes && rng() < 0.45 ? "grid" : "bar";
+    return { kind: "shade", d, n, wholes, shape, improper, answer: n,
+      prompt: improper
+        ? `Shade <b>${n}/${d}</b> — that is more than one whole, so you will need both.`
+        : `Shade <b>${n}/${d}</b> of the ingot.` };
   }
 
   // 2/5 done — how much more makes one whole?
@@ -239,14 +251,23 @@
       prompt: `<b>${a}/${d}</b> + <b>${b}/${d}</b> = ?` };
   }
 
+  // proper fits inside one whole; improper needs a whole or more
+  function makePropImp(rng) {
+    const d = pick(rng, D3_PLUS);
+    const isProper = rng() < 0.5;
+    const n = isProper ? R(rng, 1, d - 1) : R(rng, d, 2 * d - 1);
+    return { kind: "propimp", d, n, isProper, answer: isProper ? "proper" : "improper",
+      prompt: `Is <b>${n}/${d}</b> a PROPER fraction or an IMPROPER one?` };
+  }
+
   /* ---------- the factory ---------- */
   const MAKERS = {
     equal: makeEqual, name: makeName, shade: makeShade, whole: makeWhole, ofnum: makeOfNum,
     equiv: makeEquiv, compare: makeCompare, order: makeOrder, mixed: makeMixed,
-    count: makeCount, decimal: makeDecimal, addsame: makeAddSame,
+    count: makeCount, decimal: makeDecimal, addsame: makeAddSame, propimp: makePropImp,
   };
-  function makeQuestion(kind, rng, level) {
-    const q = MAKERS[kind](rng, level || SKILLS[kind].level);
+  function makeQuestion(kind, rng, level, opts) {
+    const q = MAKERS[kind](rng, level || SKILLS[kind].level, opts);
     q.skill = kind;
     q.level = SKILLS[kind].level;
     return q;
@@ -274,9 +295,10 @@
       }
       case "shade":
         if (res === q.answer) return { ok: true };
+        if (q.improper && res === q.d) return bad(`That is one whole — ${q.n}/${q.d} is MORE than one whole. Keep going onto the second ingot.`);
         return bad(res > q.answer
           ? `That's ${res} parts — ${q.n}/${q.d} means ${q.n}.`
-          : `That's only ${res} — you need ${q.n} of the ${q.d} parts.`);
+          : `That's only ${res} — you need ${q.n} parts, each one ${q.d === 2 ? "a half" : "a 1/" + q.d}.`);
       case "whole":
         if (res === q.answer) return { ok: true };
         return bad(`${q.n}/${q.d} is done, and it takes ${q.d}/${q.d} to finish. How many more pieces?`);
@@ -326,6 +348,11 @@
       case "addsame":
         if (res === q.answer) return { ok: true };
         return bad("Same bottom number, so just add the top numbers together.");
+      case "propimp":
+        if (res === q.answer) return { ok: true };
+        return q.isProper
+          ? bad(`${q.n} is less than ${q.d}, so ${q.n}/${q.d} fits inside one whole — that makes it PROPER.`)
+          : bad(`${q.n} is ${q.n === q.d ? "the same as" : "bigger than"} ${q.d}, so ${q.n}/${q.d} fills a whole ingot${q.n === q.d ? "" : " and more"} — that makes it IMPROPER.`);
       default:
         return bad("?");
     }
@@ -335,26 +362,31 @@
   const ROUND_LEN = 8;
   const MIXES = {
     3: ["equal", "name", "name", "shade", "shade", "whole", "ofnum", "ofnum"],
-    4: ["equiv", "equiv", "compare", "order", "mixed", "count", "decimal", "addsame"],
+    4: ["equiv", "equiv", "compare", "order", "mixed", "propimp", "decimal", "addsame"],
     // the readiness check: the Level 4 skills that matter most, with Level 3 underneath
-    5: ["name", "ofnum", "equiv", "compare", "mixed", "decimal", "addsame", "order"],
+    5: ["name", "ofnum", "equiv", "compare", "mixed", "propimp", "decimal", "count"],
+    // the shading drill: nothing but making the fraction yourself, in both
+    // shapes, and from halfway through it goes past one whole
+    6: ["shade", "shade", "shade", "shade", "shade", "shade", "shade", "shade"],
   };
   function makeRound(level, seed) {
     const rng = mulberry32(seed | 0);
     const kinds = shuffled(rng, MIXES[level] || MIXES[3]);
     const out = [];
     const seen = new Set();
-    for (const kind of kinds) {
+    kinds.forEach((kind, i) => {
+      // shading mode: shapes throughout, improper only once the first few are done
+      const opts = level === 6 ? { shapes: true, allowImproper: i >= 3 } : undefined;
       let q, tries = 0;
-      do { q = makeQuestion(kind, rng, level); tries++; }
+      do { q = makeQuestion(kind, rng, level === 6 ? 4 : level, opts); tries++; }
       while (seen.has(sig(q)) && tries < 30);
       seen.add(sig(q));
       out.push(q);
-    }
+    });
     return out;
   }
   function sig(q) {
-    return [q.kind, q.n, q.d, q.d1, q.d2, q.n1, q.N, q.m, q.w, q.r, q.a, q.b && q.b.n,
+    return [q.kind, q.n, q.d, q.d1, q.d2, q.n1, q.N, q.m, q.w, q.r, q.a, q.b && q.b.n, q.shape, q.isProper,
       q.shown && q.shown.map((f) => f.n + "/" + f.d).join(",")].join("|");
   }
 

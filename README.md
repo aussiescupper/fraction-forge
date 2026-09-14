@@ -34,8 +34,19 @@ including mixed numerals)
 | Counting in fractions | carry on: 3/4, 1, 1 and 1/4… |
 | Fractions as decimals | 3/4 = 0.75, and hundredths |
 | Adding fractions | 1/5 + 3/5, same bottom number |
+| Proper or improper | does it fit inside one whole, or need a whole and more? |
+
+**Shading** is a drill of one skill: make the fraction yourself. Bars and grids,
+and from halfway through the round it goes past one whole — 5/4 puts a second
+ingot on the bench, which is the plainest way to *see* what improper means.
 
 **Readiness check** interleaves both levels — that is the one to use before a test.
+
+## Working out
+Every question has a **✏️ Working out** pad: squared paper he can draw on with a
+finger, the way he would in the margin of the test. Strokes are stored as
+fractions of the canvas, so a re-render or turning the iPad redraws them rather
+than wiping them; it clears on the next question, or with "Rub it out".
 
 ## Lessons
 - **What IS a fraction?** — equal parts, the bottom number, the top number, and the
