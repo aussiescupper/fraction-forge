@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fraction Forge — pencil practice</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: "Arial Rounded MT Bold", "Trebuchet MS", Verdana, sans-serif; background: #fff; color: #111; margin: 0; padding: 18px 22px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { font-size: 13px; color: #555; margin-bottom: 14px; }
+    .q { border: 2px solid #333; border-radius: 10px; padding: 10px 14px 12px; margin-bottom: 12px; page-break-inside: avoid; }
+    .num { font-size: 11px; font-weight: bold; color: #b4520a; letter-spacing: .06em; }
+    .prompt { font-size: 17px; line-height: 1.5; margin: 3px 0 8px; }
+    .prompt b { color: #b4520a; }
+    .bar { display: flex; height: 42px; border: 2px solid #222; border-radius: 5px; overflow: hidden; max-width: 460px; }
+    .seg { flex: 1; border-right: 2px solid #222; }
+    .seg:last-child { border-right: none; }
+    .seg.on { background: #ffd08a; }
+    .ans { margin-top: 8px; font-size: 13px; color: #666; }
+    .line { display: inline-block; border-bottom: 1.5px solid #333; width: 90px; height: 18px; }
+    .toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .toolbar a, .toolbar button { font: inherit; font-size: 14px; font-weight: bold; padding: 8px 14px; border-radius: 8px; border: 2px solid #333; background: #fff; color: #111; text-decoration: none; cursor: pointer; }
+    @media print { .toolbar { display: none; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a href="index.html">← Back to the Forge</a>
+    <button onclick="window.print()">🖨️ Print</button>
+    <button onclick="go(3)">Level 3</button>
+    <button onclick="go(4)">Level 4</button>
+    <button onclick="go(level)">🔀 Different questions</button>
+  </div>
+  <h1>⚒️ Fraction Forge — pencil practice</h1>
+  <div class="sub" id="sub"></div>
+  <div id="qs"></div>
+  <script src="logic.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const level = Math.max(3, Math.min(5, parseInt(params.get("level") || "4", 10)));
+    function go(l) { location.search = "?level=" + l + "&seed=" + Math.floor(Math.random() * 1e9); }
+    const seed = parseInt(params.get("seed") || String(Date.now() % 1e9), 10);
+    const F = ForgeLogic;
+    const round = F.makeRound(level, seed).concat(F.makeRound(level, seed + 1).slice(0, 2));
+    document.getElementById("sub").textContent =
+      `Level ${level} · ${round.length} questions · show your working, and CHECK each answer by going backwards.`;
+    const plain = (s) => String(s).replace(/<[^>]+>/g, "");
+    function barHTML(d, n, parts) {
+      const ws = parts || Array.from({ length: d }, () => 1 / d);
+      return `<div class="bar">${ws.map((w, i) => `<div class="seg${i < n ? " on" : ""}" style="flex:${w}"></div>`).join("")}</div>`;
+    }
+    const qs = document.getElementById("qs");
+    round.forEach((q, i) => {
+      const box = document.createElement("div"); box.className = "q";
+      let art = "";
+      if (q.kind === "equal") art = barHTML(q.d, 0, q.parts);
+      else if (q.kind === "name" || q.kind === "whole") art = barHTML(q.d, q.n);
+      else if (q.kind === "shade") art = barHTML(q.d, 0);
+      else if (q.kind === "compare") art = barHTML(q.a.d, q.a.n) + barHTML(q.b.d, q.b.n);
+      else if (q.kind === "equiv") art = barHTML(q.d1, q.n1) + barHTML(q.d2, 0);
+      else if (q.kind === "order") art = q.shown.map((f) => barHTML(f.d, f.n)).join("");
+      const ask = q.kind === "compare" ? "Which is bigger?" : q.kind === "order" ? "Smallest first:" : "";
+      box.innerHTML = `<div class="num">Q${i + 1} · ${F.SKILLS[q.skill].name}</div>
+        <div class="prompt">${q.prompt}${ask ? " " + ask : ""}</div>${art}
+        <div class="ans">Answer <span class="line"></span> &nbsp;&nbsp; Check <span class="line"></span></div>`;
+      qs.appendChild(box);
+    });
+  </script>
+</body>
+</html>
