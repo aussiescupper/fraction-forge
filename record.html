@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recording Booth — Fraction Forge</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Arial Rounded MT Bold", "Trebuchet MS", Verdana, sans-serif; background: #241b16; color: #fdf6e8; min-height: 100vh; padding: 24px 16px 60px; }
+    .wrap { max-width: 780px; margin: 0 auto; }
+    h1 { font-size: 28px; margin-bottom: 6px; }
+    h2 { font-size: 19px; margin: 26px 0 12px; }
+    .sub { opacity: 0.86; margin-bottom: 18px; line-height: 1.5; font-size: 15px; }
+    .warn { background: #7f1d1d; border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; font-size: 15px; display: none; }
+    .tips { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 16px; margin-bottom: 22px; font-size: 14px; line-height: 1.6; }
+    .card { background: #fffaf0; color: #23180f; border-radius: 10px; padding: 15px 18px; margin-bottom: 13px; box-shadow: 0 5px 0 rgba(0,0,0,0.35); }
+    .card .num { font-size: 12px; font-weight: bold; color: #b4520a; letter-spacing: 1px; }
+    .card .line { font-size: 19px; font-weight: bold; line-height: 1.45; margin: 6px 0 12px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    button { font-family: inherit; border: none; cursor: pointer; border-radius: 9px; padding: 10px 18px; font-size: 15px; font-weight: bold; }
+    .rec { background: #dc2626; color: #fff; }
+    .rec.armed { background: #16a34a; }
+    .dl { background: #2e6b31; color: #fff; text-decoration: none; border-radius: 9px; padding: 10px 18px; font-size: 15px; font-weight: bold; display: none; }
+    audio { height: 40px; max-width: 220px; display: none; }
+    .status { font-size: 13px; opacity: 0.7; min-width: 96px; }
+    .done-note { margin-top: 24px; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.6; }
+    code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 5px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎙️ Fraction Forge Recording Booth</h1>
+    <p class="sub">Fourteen short lines — seven for each lesson. Tap <b>Record</b>, read the line, tap <b>Stop</b>, listen back, re-record as often as you like, then <b>Download</b>. Henry hears your voice on that step of the lesson, with the words on screen at the same time.</p>
+    <div id="warn" class="warn"><b>Please open this page in Safari.</b> Other browsers record a format iPads can't play back. Safari records .m4a, which works everywhere Fraction Forge runs.</div>
+    <div class="tips">
+      <b>Tips:</b> quiet room · hold the phone or iPad about 30&nbsp;cm away · read it like you'd explain it to him at the kitchen table, not like a newsreader · give the <b>CAPITALISED</b> words a little extra weight, they're the bit that matters · say fractions naturally ("three quarters", never "three slash four") · leave half a second of silence at each end. Skipping one is fine — any line you don't record just stays silent, and the words are still on screen.
+    </div>
+    <div id="cards"></div>
+    <div class="done-note">
+      <b>When you're done:</b> you'll have <code>fraction-0.m4a</code> … <code>fraction-6.m4a</code> and <code>cubes-0.m4a</code> … <code>cubes-6.m4a</code> in Downloads. Put them in the OneDrive <b>“Fraction Forge Audio”</b> folder (make it if it isn't there) and tell Claude — they get added to the app and work offline from then on.
+    </div>
+  </div>
+  <script>
+    "use strict";
+    const LINES = [
+      { file: "fraction-0.m4a", text: "Welcome to the forge. This is one whole iron ingot. Everything in here is about cutting ingots up — and putting them back together." },
+      { file: "fraction-1.m4a", text: "Cut it into two pieces that are exactly the SAME size. Each piece is called one half. The bottom number tells you how many equal pieces the whole thing was cut into." },
+      { file: "fraction-2.m4a", text: "Cut the same ingot into four equal pieces and each one is a quarter. More pieces means each piece is SMALLER — that is why a quarter is less than a half, even though four is a bigger number than two." },
+      { file: "fraction-3.m4a", text: "The one rule that matters: the pieces MUST be equal. This ingot is in four pieces too — but they are all different sizes, so none of them is a quarter. Uneven pieces do not get fraction names." },
+      { file: "fraction-4.m4a", text: "The TOP number counts how many of those pieces you take. Take three of the four quarters and you have three quarters of the ingot." },
+      { file: "fraction-5.m4a", text: "Take ALL of them and you are back where you started: four quarters is one whole ingot. And look — two quarters reaches exactly as far as one half. Same amount, different name. Those are equivalent fractions, and they are the big Level 4 idea." },
+      { file: "fraction-6.m4a", text: "So: bottom number, how many equal pieces. Top number, how many you take. That is every fraction there is. Let's forge." },
+
+      { file: "cubes-0.m4a", text: "Some fraction questions come as a STORY, and a story hides the maths inside words. CUBES is the way your tutor showed you to dig it out. Five letters, five things to do — and you do them with a pencil, right on the page." },
+      { file: "cubes-1.m4a", text: "C — CIRCLE the numbers. All of them, even ones you might not need in the end. You are just catching them so none escapes." },
+      { file: "cubes-2.m4a", text: "U — UNDERLINE the question. Which sentence actually ASKS you something? Usually it has a question mark — but not always. Sometimes it says 'Work out…'" },
+      { file: "cubes-3.m4a", text: "B — BOX the key words. The words that tell you what to DO. Here, 'a quarter of' means share into four equal groups and take one. Key words are instructions, not decoration." },
+      { file: "cubes-4.m4a", text: "E — ELIMINATE the extra information, and EVALUATE what steps to take. The price of the pizza has nothing to do with how many slices he ate — cross it out. Then: I need a quarter of twelve, so the sum is twelve divided by four." },
+      { file: "cubes-5.m4a", text: "S — SOLVE and CHECK. Twelve divided by four is three slices. Then check it backwards: three slices times four groups is twelve. That is the number we started with, so it is right." },
+      { file: "cubes-6.m4a", text: "Every letter, every time — even when the question looks easy. The whole point of CUBES is that it slows you down enough to notice the trap. Now: back to the forge." },
+    ];
+    const HEADS = { 0: "Lesson 1 — What IS a fraction? 🔥", 7: "Lesson 2 — The CUBES strategy 📋" };
+
+    const canMp4 = window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported("audio/mp4");
+    if (!canMp4) document.getElementById("warn").style.display = "block";
+    let stream = null;
+    async function getStream() { if (!stream) stream = await navigator.mediaDevices.getUserMedia({ audio: true }); return stream; }
+
+    const cardsEl = document.getElementById("cards");
+    LINES.forEach((line, i) => {
+      if (HEADS[i]) { const h = document.createElement("h2"); h.textContent = HEADS[i]; cardsEl.appendChild(h); }
+      const card = document.createElement("div"); card.className = "card";
+      card.innerHTML = `<div class="num">step ${(i % 7) + 1} of 7 — saves as ${line.file}</div>
+        <div class="line">“${line.text}”</div>
+        <div class="row">
+          <button class="rec" data-i="${i}">● Record</button>
+          <span class="status">not recorded</span>
+          <audio controls></audio>
+          <a class="dl" download="${line.file}">⬇ Download</a>
+        </div>`;
+      cardsEl.appendChild(card);
+    });
+
+    let activeRecorder = null, activeButton = null;
+    document.querySelectorAll(".rec").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (activeRecorder && activeRecorder.state === "recording") {
+          activeRecorder.stop();
+          if (activeButton === btn) return;          // this tap was the Stop
+        }
+        let s;
+        try { s = await getStream(); }
+        catch (e) { alert("Microphone permission is needed — allow it and try again."); return; }
+        const card = btn.closest(".card"), status = card.querySelector(".status"),
+              audio = card.querySelector("audio"), dl = card.querySelector(".dl");
+        const mime = canMp4 ? "audio/mp4" : (MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "");
+        const rec = mime ? new MediaRecorder(s, { mimeType: mime }) : new MediaRecorder(s);
+        const chunks = [];
+        rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+        rec.onstop = () => {
+          const blob = new Blob(chunks, { type: rec.mimeType || "audio/mp4" });
+          const url = URL.createObjectURL(blob);
+          audio.src = url; audio.style.display = "inline-block";
+          dl.href = url; dl.style.display = "inline-block";
+          status.textContent = `recorded (${(blob.size / 1024).toFixed(0)} KB)`;
+          btn.textContent = "● Re-record"; btn.classList.remove("armed");
+          activeRecorder = null; activeButton = null;
+        };
+        rec.start();
+        activeRecorder = rec; activeButton = btn;
+        btn.textContent = "■ Stop"; btn.classList.add("armed");
+        status.textContent = "recording…";
+      });
+    });
+  </script>
+</body>
+</html>

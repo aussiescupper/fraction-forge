@@ -14,6 +14,7 @@ const ASSETS = [
   "logic.js",
   "version.js",
   "print.html",
+  "record.html",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -53,7 +54,7 @@ self.addEventListener("fetch", (event) => {
   const isShell =
     req.mode === "navigate" ||
     url.pathname.endsWith("/") ||
-    /(?:^|\/)(index\.html|app\.js|logic\.js|styles\.css|print\.html|manifest\.webmanifest)$/.test(url.pathname);
+    /(?:^|\/)(index\.html|app\.js|logic\.js|styles\.css|print\.html|record\.html|manifest\.webmanifest)$/.test(url.pathname);
 
   if (isShell) {
     event.respondWith(

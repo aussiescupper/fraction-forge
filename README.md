@@ -61,4 +61,16 @@ work on next, not just a score.
   service-worker cache name both read.
 - `print.html?level=4` — ten questions as a pencil worksheet. Tests are on paper.
 
-Deployed to <https://trawleylab.github.io/fraction-forge/>.
+## Voice
+`record.html` is the recording booth — 14 lines, seven per lesson. Recordings live in
+`audio/` as `fraction-0..6.m4a` and `cubes-0..6.m4a`, and play automatically on their
+lesson step. A missing file is silent (the captions carry it) and the **Say it again**
+button falls back to the iPad's own voice, so the lesson is never mute. Only add them
+to `sw.js` ASSETS once the files exist — `cache.addAll` fails atomically on a 404.
+
+## Trawley Coin
+Same-origin bridge to `../trawley-coin/`, like Hoop Maths and Rail Runner: a round at
+75%+ offers 2 coins, 97%+ offers 3. This is why the app lives on **aussiescupper** and
+not trawleylab — the bridge is a same-origin module import and cannot cross accounts.
+
+Deployed to <https://aussiescupper.github.io/fraction-forge/>.

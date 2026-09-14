@@ -115,6 +115,51 @@ function speak(text) {
 const plain = (s) => String(s).replace(/<[^>]+>/g, "");
 const frac = (n, d) => `<span class="fr"><span class="fr-n">${n}</span><span class="fr-d">${d}</span></span>`;
 
+/* ---------- Trawley Coin bridge (same-origin, same pattern as the other apps) ---------- */
+const TRAWLEY_BASE = new URL("../trawley-coin/", location.href).href;
+const TRAWLEY_QUEUE_KEY = "fractionforge.trawley.pending";
+let trawleyPromise = null;
+function trawley() {
+  if (!trawleyPromise) {
+    trawleyPromise = (async () => {
+      if (window.TRAWLEY_FIREBASE_CONFIG === undefined) {
+        await new Promise((res, rej) => {
+          const sc = document.createElement("script");
+          sc.src = TRAWLEY_BASE + "shared/config.js";
+          sc.onload = res;
+          sc.onerror = () => rej(new Error("Trawley Coin isn't reachable"));
+          document.head.appendChild(sc);
+        });
+      }
+      const mod = await import(TRAWLEY_BASE + "shared/store.js");
+      const st = await mod.createStore();
+      return { mod, st };
+    })().catch((e) => { trawleyPromise = null; throw e; });
+  }
+  return trawleyPromise;
+}
+async function trawleySend(entry) {
+  const { mod, st } = await trawley();
+  if (st.mode !== "demo" && st.needsSetup()) throw new Error("needs-code");
+  await mod.submitRequest(st, entry);
+}
+function trawleyQueue(entry) {
+  try {
+    const q = JSON.parse(localStorage.getItem(TRAWLEY_QUEUE_KEY) || "[]");
+    q.push(entry);
+    localStorage.setItem(TRAWLEY_QUEUE_KEY, JSON.stringify(q));
+  } catch (e) { /* ignore */ }
+}
+async function trawleyFlush() {
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem(TRAWLEY_QUEUE_KEY) || "[]"); } catch (e) { return; }
+  if (!q.length) return;
+  const left = [];
+  for (const entry of q) { try { await trawleySend(entry); } catch (e) { left.push(entry); } }
+  try { localStorage.setItem(TRAWLEY_QUEUE_KEY, JSON.stringify(left)); } catch (e) { /* ignore */ }
+}
+window.addEventListener("online", () => trawleyFlush());
+
 /* ---------- THE INGOT BAR ----------
    Every skill is this one drawing seen another way. `parts` lets a bar be cut
    unevenly (the Level 3 "is this fair?" question); everything else is equal. */
@@ -530,6 +575,23 @@ function endRound() {
 
   wrap.appendChild(skillBoard(level === 5 ? null : level));
 
+  const gate = G.stars / max;
+  if (gate >= 0.75) {
+    const suggested = gate >= 0.97 ? 3 : 2;
+    const entry = { choreName: `⚒️ Fraction Forge: ${G.stars}/${max} (${MODES[level].name})`, coins: suggested,
+      note: `${G.firstGo} of ${ROUND_LEN} right first go` + (G.stars === max ? " — MASTER SMITH!" : "") };
+    const coinBtn = el("button", "btn coin", `🪙 Ask for ${suggested} Trawley Coins`);
+    coinBtn.addEventListener("click", async () => {
+      coinBtn.disabled = true; coinBtn.textContent = "Sending…";
+      try { await trawleySend(entry); coinBtn.textContent = "Sent to Mum & Dad ✓"; sfx.cheer(); }
+      catch (e) {
+        if (e && e.message === "needs-code") { coinBtn.textContent = "Link Trawley Coin first (home screen 🪙)"; coinBtn.disabled = false; }
+        else { trawleyQueue(entry); coinBtn.textContent = "Queued — sends when online ✓"; }
+      }
+    });
+    wrap.appendChild(coinBtn);
+  }
+
   const row = el("div", "btn-row");
   const again = el("button", "btn primary", "Another round");
   again.addEventListener("click", () => { sfx.whoosh(); startRound(level); });
@@ -568,6 +630,7 @@ const LESSONS = {
     kicker: "First lesson",
     title: "What IS a fraction? 🔥",
     flag: "seenFraction",
+    audio: "fraction",
     steps: [
       { cap: "Welcome to the forge. This is one whole IRON INGOT. Everything in here is about cutting ingots up — and putting them back together.",
         art: () => bar(1, { cls: "big" }) },
@@ -591,6 +654,7 @@ const LESSONS = {
     kicker: "Word problems",
     title: "The CUBES strategy 📋",
     flag: "seenCubes",
+    audio: "cubes",
     steps: [
       { cap: "Some fraction questions come as a STORY, and a story hides the maths inside words. CUBES is the way your tutor showed you to dig it out. Five letters, five things to do — and you do them with a pencil, right on the page.",
         art: () => cubesCard(0) },
@@ -657,8 +721,26 @@ function renderLesson(which, then) {
   app.innerHTML = "";
   let step = 0;
 
+  /* Mum's recorded voice for this step (audio/<lesson>-N.m4a, made in record.html).
+     If a recording isn't there yet the captions carry it, and the button falls
+     back to the iPad's own voice so the lesson is never silent. */
+  let voice = null;
+  function stopVoice() { if (voice) { voice.pause(); voice = null; } stopSpeech(); }
+  function setSay(playing) { if (sayBtn) sayBtn.textContent = playing ? "🔊 Playing…" : "🔊 Say it again"; }
+  function playVoice(i, auto) {
+    stopVoice();
+    if (store.muted) { setSay(false); return; }
+    const a = new Audio(`audio/${def.audio}-${i}.m4a`);
+    voice = a;
+    const fallback = () => { setSay(false); voice = null; if (!auto) speak(plain(def.steps[i].cap)); };
+    a.addEventListener("ended", () => { setSay(false); voice = null; });
+    a.addEventListener("error", fallback);
+    setSay(true);
+    a.play().catch(fallback);
+  }
+
   const back = el("button", "corner-back", "✕");
-  back.addEventListener("click", () => { sfx.tap(); stopSpeech(); renderHome(); });
+  back.addEventListener("click", () => { sfx.tap(); stopVoice(); renderHome(); });
   app.appendChild(back);
 
   const game = el("div", "game lesson");
@@ -668,7 +750,7 @@ function renderLesson(which, then) {
   const art = el("div", "stage lesson-art"); game.appendChild(art);
   const deck = el("div", "deck");
   const row = el("div", "btn-row");
-  const sayBtn = el("button", "btn secondary", "🔈 Read it");
+  const sayBtn = el("button", "btn secondary", "🔊 Say it again");
   const nextBtn = el("button", "btn primary", "Next ▶");
   row.append(sayBtn, nextBtn); deck.appendChild(row); game.appendChild(deck);
   app.appendChild(game);
@@ -678,12 +760,13 @@ function renderLesson(which, then) {
     cap.innerHTML = `<div class="cap-text">${s.cap}</div>`;
     art.innerHTML = ""; art.appendChild(s.art());
     nextBtn.textContent = step === def.steps.length - 1 ? (then ? "Let's forge ▶" : "Done ✔") : "Next ▶";
+    playVoice(step, true);
   }
-  sayBtn.addEventListener("click", () => { sfx.tap(); speak(plain(def.steps[step].cap)); });
+  sayBtn.addEventListener("click", () => { sfx.tap(); playVoice(step, false); });
   nextBtn.addEventListener("click", () => {
     step += 1; sfx.tap();
     if (step >= def.steps.length) {
-      stopSpeech();
+      stopVoice();
       store[def.flag] = true; saveStore();
       if (then) then(); else renderHome();
       return;
@@ -736,6 +819,27 @@ function renderHome() {
   pills.append(l1, l2, bd, pr);
   home.appendChild(pills);
 
+  const twRow = el("div", "pill-row");
+  const twBtn = el("button", "pill faint", "🪙 Trawley Coin link");
+  twBtn.addEventListener("click", async () => {
+    twBtn.textContent = "🪙 Checking…";
+    try {
+      const { st } = await trawley();
+      if (st.mode === "demo") twBtn.textContent = "🪙 Linked (this device)";
+      else if (!st.needsSetup()) twBtn.textContent = `🪙 Linked to family ${st.familyCode()}`;
+      else {
+        const code = (window.prompt("Enter your Trawley Coin family code (6 letters):") || "").trim();
+        if (!code) { twBtn.textContent = "🪙 Trawley Coin link"; return; }
+        await st.joinFamily(code);
+        twBtn.textContent = `🪙 Linked to family ${st.familyCode()}`;
+        trawleyFlush();
+      }
+      sfx.tap();
+    } catch (e) { twBtn.textContent = "🪙 " + (e && e.message ? e.message : "Couldn't reach Trawley Coin"); }
+  });
+  twRow.appendChild(twBtn);
+  home.appendChild(twRow);
+
   home.appendChild(el("div", "credit",
     `A ScupperLab production  ·  v${self.APP_VERSION || "?"}${self.APP_DATE ? " · " + self.APP_DATE : ""}`));
   app.appendChild(home);
@@ -771,4 +875,5 @@ syncMute();
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
 }
+trawleyFlush();
 renderHome();
