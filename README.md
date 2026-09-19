@@ -42,6 +42,14 @@ ingot on the bench, which is the plainest way to *see* what improper means.
 
 **Readiness check** interleaves both levels — that is the one to use before a test.
 
+## Its own icon
+`improper.html` is a second front door: same code, same saved progress, but its
+own name, manifest and icon. Added to the iPad home screen it becomes a separate
+tile — **🧨 Improper** — that opens straight into a round of nothing but fractions
+past one whole: tell proper from improper, shade 5/4 across two ingots, rename
+7/4 as 1¾, and count through the whole. It is also the fifth mode inside the full
+Forge, so the drill is reachable either way.
+
 ## Working out
 Every question has a **✏️ Working out** pad: squared paper he can draw on with a
 finger, the way he would in the margin of the test. Strokes are stored as

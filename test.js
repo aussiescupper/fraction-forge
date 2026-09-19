@@ -51,7 +51,7 @@ function wrongAnswer(q) {
 }
 
 for (let seed = 1; seed <= 500; seed++) {
-  for (const level of [3, 4, 5, 6]) {
+  for (const level of [3, 4, 5, 6, 7]) {
     for (const q of F.makeRound(level, seed * 7919 + level)) {
       total++;
       seen[q.skill] = (seen[q.skill] || 0) + 1;
@@ -142,6 +142,16 @@ function sameValue(q, res) {
 }
 
 // every skill must actually appear, and each level's round must be on-level
+// the improper drill: every question must be about going past one whole
+const IMPROPER_OK = new Set(["propimp", "shade", "mixed", "count"]);
+if (!F.MIXES[7].every((k) => IMPROPER_OK.has(k))) fails.push("the improper drill contains an unrelated skill");
+for (let seed = 1; seed <= 300; seed++) {
+  for (const q of F.makeRound(7, seed * 17)) {
+    if (q.kind === "shade" && !q.improper) fails.push("improper drill produced a shade that fits in one whole");
+    if (q.kind === "mixed" && !(q.n > q.d)) fails.push("improper drill produced a proper mixed number");
+    if (q.kind === "count" && !(q.nextN > q.d)) fails.push("improper drill produced a count that never passes one");
+  }
+}
 const lvl6 = F.MIXES[6].every((k) => k === "shade");
 if (!lvl6) fails.push("the shading drill contains something other than shading");
 let sawImproper = false, sawGrid = false, sawBar = false;

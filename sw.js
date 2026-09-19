@@ -15,6 +15,12 @@ const ASSETS = [
   "version.js",
   "print.html",
   "record.html",
+  "improper.html",
+  "manifest-improper.webmanifest",
+  "icons/improper-192.png",
+  "icons/improper-512.png",
+  "icons/improper-180.png",
+  "icons/improper-maskable-512.png",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -54,7 +60,7 @@ self.addEventListener("fetch", (event) => {
   const isShell =
     req.mode === "navigate" ||
     url.pathname.endsWith("/") ||
-    /(?:^|\/)(index\.html|app\.js|logic\.js|styles\.css|print\.html|record\.html|manifest\.webmanifest)$/.test(url.pathname);
+    /(?:^|\/)(index\.html|app\.js|logic\.js|styles\.css|print\.html|record\.html|improper\.html|manifest\.webmanifest)$/.test(url.pathname);
 
   if (isShell) {
     event.respondWith(

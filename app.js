@@ -19,7 +19,7 @@ function loadStore() {
   const base = {
     muted: false,
     career: { stars: 0, rounds: 0 },
-    best: { 3: 0, 4: 0, 5: 0 },
+    best: { 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
     skills: {},                 // kind -> [right, attempts]  (the readiness board)
     seenFraction: false,
     seenCubes: false,
@@ -326,12 +326,13 @@ const MODES = {
   4: { name: "Level 4", sub: "ready for Grade 4", emoji: "⚒️", tag: "Year 4" },
   5: { name: "Readiness check", sub: "a bit of everything", emoji: "🏅", tag: "mixed" },
   6: { name: "Shading", sub: "make the fraction yourself", emoji: "🎨", tag: "practice" },
+  7: { name: "Improper Fractions", sub: "everything past one whole", emoji: "🧨", tag: "practice" },
 };
 let G = null;   // current round
 let Q = null;   // current question state
 
 function startRound(level) {
-  if (!store.seenFraction) { renderLesson("fraction", () => startRound(level)); return; }
+  if (!store.seenFraction && !FOCUS) { renderLesson("fraction", () => startRound(level)); return; }
   const seed = (Date.now() ^ (Math.random() * 1e9)) | 0;
   G = { level, qs: L.makeRound(level, seed), idx: 0, stars: 0, firstGo: 0 };
   newQ();
@@ -692,7 +693,7 @@ function endRound() {
   wrap.appendChild(el("div", "sub", `${MODES[level].emoji} ${MODES[level].name} · ${G.firstGo} of ${ROUND_LEN} right first go`));
   if (isBest && G.stars > 0) wrap.appendChild(el("div", "newbest", `⭐ New ${MODES[level].name} record!`));
 
-  wrap.appendChild(skillBoard(level === 5 ? null : level));
+  wrap.appendChild(FOCUS ? focusBoard() : skillBoard(level === 5 ? null : level));
 
   const gate = G.stars / max;
   if (gate >= 0.75) {
@@ -719,6 +720,21 @@ function endRound() {
   row.append(again, home);
   wrap.appendChild(row);
   app.appendChild(wrap);
+}
+
+function focusBoard() {
+  const board = el("div", "board");
+  FOCUS.skills.forEach((k) => {
+    const [right, tries] = store.skills[k] || [0, 0];
+    const pct = tries ? Math.round(100 * right / tries) : 0;
+    const state = tries < 5 ? "new" : pct >= 80 ? "solid" : pct >= 55 ? "ok" : "work";
+    const row = el("div", "board-row " + state);
+    row.appendChild(el("span", "dot"));
+    row.appendChild(el("span", "bname", L.SKILLS[k].name));
+    row.appendChild(el("span", "bnum", tries < 5 ? `${tries}/5 tried` : `${pct}%`));
+    board.appendChild(row);
+  });
+  return board;
 }
 
 /* ---------- the readiness board ----------
@@ -895,8 +911,73 @@ function renderLesson(which, then) {
   draw();
 }
 
+/* ---------- focused mode ----------
+   improper.html sets data-focus on the body. Installed to the home screen it
+   becomes its own icon that opens straight into that one drill, sharing the
+   same saved progress as the full Forge. */
+const FOCUS = (() => {
+  const id = document.body.dataset.focus;
+  if (!id) return null;
+  const defs = {
+    improper: {
+      level: 7, emoji: "🧨", title: "Improper Fractions",
+      tagline: "Top number bigger than the bottom — more than one whole ingot.",
+      skills: ["propimp", "shade", "mixed", "count"],
+    },
+  };
+  return defs[id] || null;
+})();
+
+function renderFocusHome() {
+  G = null; Q = null;
+  stopSpeech();
+  app.innerHTML = "";
+  const home = el("div", "home");
+  home.appendChild(el("h1", null, `${FOCUS.emoji} ${FOCUS.title}`));
+  home.appendChild(el("div", "tagline", FOCUS.tagline));
+
+  // the picture that says what this is: one whole ingot and a bit of the next
+  const demo = el("div", "multi focus-demo");
+  demo.appendChild(bar(4, { shaded: new Set([0, 1, 2, 3]), cls: "big" }));
+  demo.appendChild(bar(4, { shaded: new Set([0]), cls: "big" }));
+  home.appendChild(demo);
+  home.appendChild(html("div", "count-note", `that is <b>5 quarters</b> — ${frac(5, 4)} — or <b>1 and ${frac(1, 4)}</b>`));
+
+  const start = el("button", "btn primary start-btn", "Start a round");
+  start.addEventListener("click", () => { sfx.whoosh(); startRound(FOCUS.level); });
+  home.appendChild(start);
+
+  const best = store.best[FOCUS.level] || 0;
+  home.appendChild(el("div", "mode-best",
+    best ? `🏆 Best: ${best}/${ROUND_LEN * 2}` : "Not played yet"));
+
+  const board = el("div", "board");
+  board.appendChild(el("div", "board-head", "How it's going"));
+  FOCUS.skills.forEach((k) => {
+    const [right, tries] = store.skills[k] || [0, 0];
+    const pct = tries ? Math.round(100 * right / tries) : 0;
+    const state = tries < 5 ? "new" : pct >= 80 ? "solid" : pct >= 55 ? "ok" : "work";
+    const row = el("div", "board-row " + state);
+    row.appendChild(el("span", "dot"));
+    row.appendChild(el("span", "bname", L.SKILLS[k].name));
+    row.appendChild(el("span", "bnum", tries < 5 ? `${tries}/5 tried` : `${pct}%`));
+    board.appendChild(row);
+  });
+  home.appendChild(board);
+
+  const pills = el("div", "pill-row");
+  const full = el("a", "pill", "⚒️ Open the full Fraction Forge");
+  full.href = "index.html";
+  pills.appendChild(full);
+  home.appendChild(pills);
+  home.appendChild(el("div", "credit",
+    `A ScupperLab production  ·  v${self.APP_VERSION || "?"}${self.APP_DATE ? " · " + self.APP_DATE : ""}`));
+  app.appendChild(home);
+}
+
 /* ================= HOME ================= */
 function renderHome() {
+  if (FOCUS) return renderFocusHome();
   G = null; Q = null;
   stopSpeech();
   app.innerHTML = "";
@@ -909,12 +990,13 @@ function renderHome() {
     const [r, t] = store.skills[k] || [0, 0];
     return t >= 5 && r / t >= 0.8;
   }).length;
-  [["Stars", store.career.stars], ["Rounds", store.career.rounds], ["Skills solid", `${solid}/12`]]
+  const skillCount = Object.keys(L.SKILLS).length;
+  [["Stars", store.career.stars], ["Rounds", store.career.rounds], ["Skills solid", `${solid}/${skillCount}`]]
     .forEach(([label, val]) => { const s = el("div", "stat"); s.innerHTML = `<b>${val}</b><br>${label}`; career.appendChild(s); });
   home.appendChild(career);
 
   const row = el("div", "mode-row");
-  [3, 4, 5, 6].forEach((lvl) => {
+  [3, 4, 5, 6, 7].forEach((lvl) => {
     const m = MODES[lvl];
     const b = el("button", "mode-btn");
     b.appendChild(el("span", "mode-emoji", m.emoji));

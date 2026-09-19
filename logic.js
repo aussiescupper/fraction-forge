@@ -109,7 +109,7 @@
   function makeShade(rng, level, opts) {
     opts = opts || {};
     const d = pick(rng, level >= 4 || opts.shapes ? D3_PLUS : D3);
-    const improper = opts.allowImproper && rng() < 0.35;
+    const improper = opts.forceImproper || (opts.allowImproper && rng() < 0.35);
     const n = improper ? R(rng, d + 1, 2 * d - 1) : R(rng, 1, d - 1);
     const wholes = improper ? 2 : 1;
     const shape = opts.shapes && rng() < 0.45 ? "grid" : "bar";
@@ -368,6 +368,9 @@
     // the shading drill: nothing but making the fraction yourself, in both
     // shapes, and from halfway through it goes past one whole
     6: ["shade", "shade", "shade", "shade", "shade", "shade", "shade", "shade"],
+    // the improper drill, behind its own home-screen icon: tell them apart,
+    // make one, rename it as a mixed number, and count through one whole
+    7: ["propimp", "propimp", "shade", "shade", "mixed", "mixed", "count", "count"],
   };
   function makeRound(level, seed) {
     const rng = mulberry32(seed | 0);
@@ -375,10 +378,12 @@
     const out = [];
     const seen = new Set();
     kinds.forEach((kind, i) => {
-      // shading mode: shapes throughout, improper only once the first few are done
-      const opts = level === 6 ? { shapes: true, allowImproper: i >= 3 } : undefined;
+      // shading mode: shapes throughout, improper only once the first few are done.
+      // improper mode: every shade goes past one whole, no exceptions.
+      const opts = level === 6 ? { shapes: true, allowImproper: i >= 3 }
+        : level === 7 ? { shapes: true, forceImproper: true } : undefined;
       let q, tries = 0;
-      do { q = makeQuestion(kind, rng, level === 6 ? 4 : level, opts); tries++; }
+      do { q = makeQuestion(kind, rng, level >= 6 ? 4 : level, opts); tries++; }
       while (seen.has(sig(q)) && tries < 30);
       seen.add(sig(q));
       out.push(q);

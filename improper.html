@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#241b16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- its own name and icon, so Add to Home Screen gives a separate tile that
+       opens straight into the improper-fractions drill -->
+  <meta name="apple-mobile-web-app-title" content="Improper" />
+  <link rel="manifest" href="manifest-improper.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/improper-180.png" />
+  <link rel="icon" href="icons/improper-192.png" />
+  <title>Improper Fractions</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-focus="improper">
+  <button id="mute-btn" class="mute-btn" type="button" aria-label="Mute sound" title="Mute sound">🔊</button>
+  <div id="app" class="app"></div>
+  <div id="fx-layer" class="fx-layer"></div>
+  <script src="version.js"></script>
+  <script src="logic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
