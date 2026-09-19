@@ -17,6 +17,18 @@ const ASSETS = [
   "record.html",
   "improper.html",
   "manifest-improper.webmanifest",
+  "adding.html",
+  "manifest-adding.webmanifest",
+  "bigger.html",
+  "manifest-bigger.webmanifest",
+  "icons/adding-192.png",
+  "icons/adding-512.png",
+  "icons/adding-180.png",
+  "icons/adding-maskable-512.png",
+  "icons/bigger-192.png",
+  "icons/bigger-512.png",
+  "icons/bigger-180.png",
+  "icons/bigger-maskable-512.png",
   "icons/improper-192.png",
   "icons/improper-512.png",
   "icons/improper-180.png",
@@ -60,7 +72,7 @@ self.addEventListener("fetch", (event) => {
   const isShell =
     req.mode === "navigate" ||
     url.pathname.endsWith("/") ||
-    /(?:^|\/)(index\.html|app\.js|logic\.js|styles\.css|print\.html|record\.html|improper\.html|manifest\.webmanifest)$/.test(url.pathname);
+    /(?:^|\/)(index\.html|app\.js|logic\.js|styles\.css|print\.html|record\.html|improper\.html|adding\.html|bigger\.html|manifest\.webmanifest)$/.test(url.pathname);
 
   if (isShell) {
     event.respondWith(

@@ -1,0 +1,29 @@
+{
+  "name": "Which is Bigger?",
+  "short_name": "Bigger",
+  "description": "Comparing and ordering fractions \u2014 which one reaches further?",
+  "start_url": "./bigger.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#241b16",
+  "theme_color": "#241b16",
+  "icons": [
+    {
+      "src": "icons/bigger-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/bigger-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/bigger-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -19,7 +19,7 @@ function loadStore() {
   const base = {
     muted: false,
     career: { stars: 0, rounds: 0 },
-    best: { 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
+    best: { 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 },
     skills: {},                 // kind -> [right, attempts]  (the readiness board)
     seenFraction: false,
     seenCubes: false,
@@ -325,8 +325,10 @@ const MODES = {
   3: { name: "Level 3", sub: "what a fraction IS", emoji: "🔥", tag: "Year 3" },
   4: { name: "Level 4", sub: "ready for Grade 4", emoji: "⚒️", tag: "Year 4" },
   5: { name: "Readiness check", sub: "a bit of everything", emoji: "🏅", tag: "mixed" },
-  6: { name: "Shading", sub: "make the fraction yourself", emoji: "🎨", tag: "practice" },
-  7: { name: "Improper Fractions", sub: "everything past one whole", emoji: "🧨", tag: "practice" },
+  6: { name: "Shading", sub: "make the fraction yourself", emoji: "🎨", drill: true },
+  7: { name: "Improper Fractions", sub: "everything past one whole", emoji: "🧨", drill: true },
+  8: { name: "Adding", sub: "same bottom number", emoji: "➕", drill: true },
+  9: { name: "Which is Bigger?", sub: "compare and order", emoji: "⚖️", drill: true },
 };
 let G = null;   // current round
 let Q = null;   // current question state
@@ -644,8 +646,17 @@ function buildQuestion(q, stage) {
       sum.appendChild(bar(q.d, { shaded: new Set(Array.from({ length: q.b }, (_, j) => j)), cls: "mini" }));
       stage.appendChild(sum);
       if (Q.done) {
-        stage.appendChild(el("div", "count-note", `= ${q.a + q.b}/${q.d}`));
-        stage.appendChild(bar(q.d, { shaded: new Set(Array.from({ length: q.a + q.b }, (_, j) => j)), cls: "big" }));
+        const tot = q.a + q.b;
+        stage.appendChild(el("div", "count-note",
+          `= ${tot}/${q.d}` + (tot > q.d ? `  —  that is past one whole` : tot === q.d ? `  —  exactly one whole` : "")));
+        const holder = el("div", tot > q.d ? "multi" : "single");
+        const wholes = Math.ceil(tot / q.d);
+        for (let w = 0; w < wholes; w++) {
+          const sh = new Set();
+          for (let j = 0; j < q.d; j++) if (w * q.d + j < tot) sh.add(j);
+          holder.appendChild(bar(q.d, { shaded: sh, cls: "big" }));
+        }
+        stage.appendChild(holder);
       } else {
         const wrap = el("div", "fr-wrap");
         wrap.appendChild(fracSlots({ n: Q.state.v }, "n", () => {}, q.d));
@@ -923,6 +934,37 @@ const FOCUS = (() => {
       level: 7, emoji: "🧨", title: "Improper Fractions",
       tagline: "Top number bigger than the bottom — more than one whole ingot.",
       skills: ["propimp", "shade", "mixed", "count"],
+      demo: () => {
+        const w = el("div", "multi focus-demo");
+        w.appendChild(bar(4, { shaded: new Set([0, 1, 2, 3]), cls: "big" }));
+        w.appendChild(bar(4, { shaded: new Set([0]), cls: "big" }));
+        return w;
+      },
+      caption: `that is <b>5 quarters</b> — ${frac(5, 4)} — or <b>1 and ${frac(1, 4)}</b>`,
+    },
+    adding: {
+      level: 8, emoji: "➕", title: "Adding Fractions",
+      tagline: "Same bottom number? Just add the top numbers.",
+      skills: ["addsame", "whole"],
+      demo: () => {
+        const w = el("div", "multi focus-demo");
+        w.appendChild(bar(5, { shaded: new Set([0]), cls: "big" }));
+        w.appendChild(bar(5, { shaded: new Set([0, 1, 2]), cls: "big" }));
+        return w;
+      },
+      caption: `${frac(1, 5)} + ${frac(3, 5)} = ${frac(4, 5)} — the <b>5</b> never changes`,
+    },
+    bigger: {
+      level: 9, emoji: "⚖️", title: "Which is Bigger?",
+      tagline: "Line them up and see which one reaches further.",
+      skills: ["compare", "order"],
+      demo: () => {
+        const w = el("div", "wall focus-demo");
+        w.appendChild(wallRow(3, 2, "2/3"));
+        w.appendChild(wallRow(4, 2, "2/4"));
+        return w;
+      },
+      caption: `same top number, but thirds are <b>bigger pieces</b> than quarters`,
     },
   };
   return defs[id] || null;
@@ -936,12 +978,9 @@ function renderFocusHome() {
   home.appendChild(el("h1", null, `${FOCUS.emoji} ${FOCUS.title}`));
   home.appendChild(el("div", "tagline", FOCUS.tagline));
 
-  // the picture that says what this is: one whole ingot and a bit of the next
-  const demo = el("div", "multi focus-demo");
-  demo.appendChild(bar(4, { shaded: new Set([0, 1, 2, 3]), cls: "big" }));
-  demo.appendChild(bar(4, { shaded: new Set([0]), cls: "big" }));
-  home.appendChild(demo);
-  home.appendChild(html("div", "count-note", `that is <b>5 quarters</b> — ${frac(5, 4)} — or <b>1 and ${frac(1, 4)}</b>`));
+  // the picture that says what this drill is
+  home.appendChild(FOCUS.demo());
+  home.appendChild(html("div", "count-note", FOCUS.caption));
 
   const start = el("button", "btn primary start-btn", "Start a round");
   start.addEventListener("click", () => { sfx.whoosh(); startRound(FOCUS.level); });
@@ -996,7 +1035,7 @@ function renderHome() {
   home.appendChild(career);
 
   const row = el("div", "mode-row");
-  [3, 4, 5, 6, 7].forEach((lvl) => {
+  [3, 4, 5].forEach((lvl) => {
     const m = MODES[lvl];
     const b = el("button", "mode-btn");
     b.appendChild(el("span", "mode-emoji", m.emoji));
@@ -1007,6 +1046,20 @@ function renderHome() {
     row.appendChild(b);
   });
   home.appendChild(row);
+
+  // one skill at a time — each of these also has its own home-screen icon
+  home.appendChild(el("div", "drill-head", "Practise one thing"));
+  const drills = el("div", "drill-row");
+  Object.keys(MODES).filter((k) => MODES[k].drill).forEach((lvl) => {
+    const m = MODES[lvl];
+    const b = el("button", "drill-btn");
+    b.appendChild(el("span", "drill-emoji", m.emoji));
+    b.appendChild(el("span", "drill-name", m.name));
+    b.appendChild(el("span", "drill-best", store.best[lvl] ? `${store.best[lvl]}/${ROUND_LEN * 2}` : "—"));
+    b.addEventListener("click", () => { sfx.whoosh(); startRound(+lvl); });
+    drills.appendChild(b);
+  });
+  home.appendChild(drills);
 
   const pills = el("div", "pill-row");
   const l1 = el("button", "pill", "🔥 Lesson — what IS a fraction?");

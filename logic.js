@@ -242,12 +242,20 @@
         : `The scale reads <b>${f.dec}</b>. Write that as a fraction out of <b>${f.d}</b>.` };
   }
 
-  // same bottom number: just add the tops
-  function makeAddSame(rng) {
+  // same bottom number: just add the tops. `past` lets the total go over one
+  // whole, so the answer comes out improper — that is the step up.
+  function makeAddSame(rng, level, opts) {
+    opts = opts || {};
     const d = pick(rng, D3_PLUS.filter((x) => x >= 3));
-    const a = R(rng, 1, d - 2);
-    const b = R(rng, 1, d - a);
-    return { kind: "addsame", d, a, b, answer: a + b,
+    let a, b;
+    if (opts.past) {
+      a = R(rng, 2, d - 1);
+      b = R(rng, d - a + 1, d - 1);            // forces a + b past d
+    } else {
+      a = R(rng, 1, d - 2);
+      b = R(rng, 1, d - a);
+    }
+    return { kind: "addsame", d, a, b, past: a + b > d, answer: a + b,
       prompt: `<b>${a}/${d}</b> + <b>${b}/${d}</b> = ?` };
   }
 
@@ -347,7 +355,8 @@
         return bad(`${q.dec} means ${q.dec * q.d} out of ${q.d}.`);
       case "addsame":
         if (res === q.answer) return { ok: true };
-        return bad("Same bottom number, so just add the top numbers together.");
+        if (q.past && res === q.d) return bad(`${q.a} + ${q.b} is more than ${q.d}, so the answer goes PAST one whole. The top number can be bigger than the bottom.`);
+        return bad(`Same bottom number, so just add the top numbers: ${q.a} + ${q.b}.`);
       case "propimp":
         if (res === q.answer) return { ok: true };
         return q.isProper
@@ -371,6 +380,10 @@
     // the improper drill, behind its own home-screen icon: tell them apart,
     // make one, rename it as a mixed number, and count through one whole
     7: ["propimp", "propimp", "shade", "shade", "mixed", "mixed", "count", "count"],
+    // adding: same bottom number throughout, and the last few spill past one whole
+    8: ["addsame", "addsame", "whole", "addsame", "addsame", "whole", "addsame", "addsame"],
+    // which is bigger: two at a time, then three to put in order
+    9: ["compare", "compare", "compare", "order", "compare", "compare", "order", "order"],
   };
   function makeRound(level, seed) {
     const rng = mulberry32(seed | 0);
@@ -381,7 +394,9 @@
       // shading mode: shapes throughout, improper only once the first few are done.
       // improper mode: every shade goes past one whole, no exceptions.
       const opts = level === 6 ? { shapes: true, allowImproper: i >= 3 }
-        : level === 7 ? { shapes: true, forceImproper: true } : undefined;
+        : level === 7 ? { shapes: true, forceImproper: true }
+        // the adding drill saves the over-one-whole sums for the back half
+        : level === 8 ? { past: i >= 4 } : undefined;
       let q, tries = 0;
       do { q = makeQuestion(kind, rng, level >= 6 ? 4 : level, opts); tries++; }
       while (seen.has(sig(q)) && tries < 30);

@@ -301,3 +301,20 @@ a { color: inherit; text-decoration: none; }
   .work-canvas { height: 150px; }
   .grid-shape { width: min(260px, 34vw); }
 }
+
+/* ---------- one-skill drills on the home screen ---------- */
+.drill-head {
+  font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold); font-weight: bold; margin-top: 4px;
+}
+.drill-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.drill-btn {
+  background: rgba(255,255,255,.12); color: var(--paper); border-radius: 14px;
+  padding: 10px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 112px; border: 2px solid rgba(255,255,255,.14);
+}
+.drill-btn:active { transform: translateY(2px); }
+.drill-emoji { font-size: 24px; }
+.drill-name { font-size: 14px; font-weight: bold; text-align: center; }
+.drill-best { font-size: 11px; color: var(--gold); font-weight: bold; }
+.focus-demo { margin: 2px 0; }

@@ -42,13 +42,23 @@ ingot on the bench, which is the plainest way to *see* what improper means.
 
 **Readiness check** interleaves both levels — that is the one to use before a test.
 
-## Its own icon
-`improper.html` is a second front door: same code, same saved progress, but its
-own name, manifest and icon. Added to the iPad home screen it becomes a separate
-tile — **🧨 Improper** — that opens straight into a round of nothing but fractions
-past one whole: tell proper from improper, shade 5/4 across two ingots, rename
-7/4 as 1¾, and count through the whole. It is also the fifth mode inside the full
-Forge, so the drill is reachable either way.
+## Drills, each with its own icon
+Four one-skill drills sit under "Practise one thing" on the home screen, and three
+of them also have their own front door. A front door is the same app with a
+different `data-focus` on the body: same code, same saved progress, but its own
+name, manifest and icon, so Add to Home Screen gives a separate tile that opens
+straight into that drill instead of the mode picker.
+
+| tile | page | what a round is |
+|---|---|---|
+| 🎨 Shading | (in-app only) | make the fraction yourself, bars and grids, going past one whole from halfway |
+| 🧨 Improper | `improper.html` | proper vs improper, shade 5/4 across two ingots, 7/4 ↔ 1¾, counting through the whole |
+| ➕ Adding | `adding.html` | same bottom number, with the back half of the round spilling past one whole |
+| ⚖️ Bigger | `bigger.html` | which of two is bigger, and putting three in order |
+
+Adding a drill: give it a `MIXES` entry in `logic.js`, a `MODES` entry with
+`drill: true`, a `FOCUS` def (with its own demo picture), a copy of the html with
+the right `data-focus`, a manifest, icons, and the sw precache lines.
 
 ## Working out
 Every question has a **✏️ Working out** pad: squared paper he can draw on with a

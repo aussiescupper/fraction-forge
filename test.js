@@ -51,7 +51,7 @@ function wrongAnswer(q) {
 }
 
 for (let seed = 1; seed <= 500; seed++) {
-  for (const level of [3, 4, 5, 6, 7]) {
+  for (const level of [3, 4, 5, 6, 7, 8, 9]) {
     for (const q of F.makeRound(level, seed * 7919 + level)) {
       total++;
       seen[q.skill] = (seen[q.skill] || 0) + 1;
@@ -125,8 +125,10 @@ for (let seed = 1; seed <= 500; seed++) {
         case "decimal":
           check(Math.abs(q.n / q.d - q.dec) < 1e-9, "decimal does not match the fraction", q); break;
         case "addsame":
-          check(q.a + q.b <= q.d, "sum goes past one whole", q);
-          check(q.a >= 1 && q.b >= 1, "adding a zero", q); break;
+          check(q.a >= 1 && q.b >= 1, "adding a zero", q);
+          check(q.a < q.d && q.b < q.d, "an addend is already a whole", q);
+          check(q.past === (q.a + q.b > q.d), "'past one whole' flag disagrees with the sum", q);
+          break;
       }
       // prompts are rendered as HTML and read aloud: no unfilled slots, sensible length
       check(!!q.prompt && !/\{|\bundefined\b|NaN/.test(q.prompt), "bad prompt", q);
@@ -152,6 +154,21 @@ for (let seed = 1; seed <= 300; seed++) {
     if (q.kind === "count" && !(q.nextN > q.d)) fails.push("improper drill produced a count that never passes one");
   }
 }
+// the adding drill: same bottom number throughout, and the back half goes past one whole
+const ADD_OK = new Set(["addsame", "whole"]);
+if (!F.MIXES[8].every((k) => ADD_OK.has(k))) fails.push("the adding drill contains an unrelated skill");
+const BIG_OK = new Set(["compare", "order"]);
+if (!F.MIXES[9].every((k) => BIG_OK.has(k))) fails.push("the bigger drill contains an unrelated skill");
+let addPast = 0, addUnder = 0;
+for (let seed = 1; seed <= 300; seed++) {
+  F.makeRound(8, seed * 23).forEach((q, i) => {
+    if (q.kind !== "addsame") return;
+    if (q.past) addPast++; else addUnder++;
+    if (i < 4 && q.past) fails.push("the adding drill went past one whole too early");
+  });
+}
+if (!addPast) fails.push("the adding drill never goes past one whole");
+if (!addUnder) fails.push("the adding drill never stays under one whole");
 const lvl6 = F.MIXES[6].every((k) => k === "shade");
 if (!lvl6) fails.push("the shading drill contains something other than shading");
 let sawImproper = false, sawGrid = false, sawBar = false;
